@@ -3,13 +3,13 @@ var ConcatSource = require("webpack-sources/lib/ConcatSource");
 var OriginalSource = require("webpack-sources").OriginalSource;
 var PrefixSource = require("webpack-sources").PrefixSource;
 
-function OptimizedCompilerPlugin(options) {};
+function OptimizedCompilePlugin(options) {};
 
-OptimizedCompilerPlugin.prototype.generateModulesPreloaderID = function() {
+OptimizedCompilePlugin.prototype.generateModulesPreloaderID = function() {
     return 'OptimizedModules' + (new Date()).getTime();
 }
 
-OptimizedCompilerPlugin.prototype.apply = function(compiler) {
+OptimizedCompilePlugin.prototype.apply = function(compiler) {
     var self = this;
 
     compiler.plugin("compile", function(params) {
@@ -37,4 +37,4 @@ OptimizedCompilerPlugin.prototype.apply = function(compiler) {
     })
 };
 
-module.exports = OptimizedCompilerPlugin;
+module.exports = OptimizedCompilePlugin;
