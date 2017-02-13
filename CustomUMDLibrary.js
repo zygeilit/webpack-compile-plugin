@@ -125,10 +125,19 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 		var dependencyTemplates = compilation.dependencyTemplates;
 
 		// 自定义的模块解析函数
-		var cusModuleTemplate = new CustomModuleTemplate(compilation.outputOptions);
+		moduleTemplate.render = function(module, dependencyTemplates, chunk) {
+			if(!module.built) {
+				moduleSource = CustomModuleTemplate.call(module, dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
+			} else {
+				moduleSource = module.source(dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
+			}
+			moduleSource = this.applyPluginsWaterfall("module", moduleSource, module, chunk, dependencyTemplates);
+			moduleSource = this.applyPluginsWaterfall("render", moduleSource, module, chunk, dependencyTemplates);
+			return this.applyPluginsWaterfall("package", moduleSource, module, chunk, dependencyTemplates);
+		}
 
-		var modules = compilation.chunkTemplate.renderChunkModules(chunk, cusModuleTemplate, dependencyTemplates, "/******/ ");
-        var moduleListSource = mainTemplate.applyPluginsWaterfall("modules", modules, chunk, hash, cusModuleTemplate, dependencyTemplates);
+		var modules = compilation.chunkTemplate.renderChunkModules(chunk, moduleTemplate, dependencyTemplates, "/******/ ");
+        var moduleListSource = mainTemplate.applyPluginsWaterfall("modules", modules, chunk, hash, moduleTemplate, dependencyTemplates);
 
         var externalsHeadSource = [
             "\n\n/******/ // attach entry arguments to private name-space\n",

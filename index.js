@@ -1,1 +1,1 @@
-module.exports = require('./BeisenCompilePlugin');
+module.exports = require('./OptimizedCompilePlugin');

@@ -4,7 +4,7 @@ var OriginalSource = require("webpack/lib/OriginalSource");
 var RawSource = require("webpack/lib/RawSource");
 var WebpackMissingModule = require("webpack/lib/dependencies/WebpackMissingModule");
 
-var source = function(dependencyTemplates, outputOptions, requestShortener, chunk) {
+module.exports = function(dependencyTemplates, outputOptions, requestShortener, chunk) {
 	var str = "throw new Error('Externals not supported');";
 	var request = this.request;
 	if(typeof request === "object") request = request[this.type];
@@ -38,7 +38,7 @@ var source = function(dependencyTemplates, outputOptions, requestShortener, chun
 			var hash = chunk.hash;
 			var moduleArgName = "__WEBPACK_EXTERNAL_MODULE_" + this.id + "__";
 			str += "\n"+ moduleArgName +" = __WEBPACK_EXTERNALS_" + hash + "['"+ moduleArgName +"'];\n";
-			str += "if(!"+ moduleArgName +".exports) { "+ moduleArgName +" = "+ moduleArgName +"(); };\n";
+			str += "if(!typeof "+ moduleArgName +" === 'function') { "+ moduleArgName +" = "+ moduleArgName +"(); };\n";
 			str += "module.exports = "+ moduleArgName +";\n";
 			break;
 		default:
@@ -55,28 +55,3 @@ var source = function(dependencyTemplates, outputOptions, requestShortener, chun
 		return new RawSource(str);
 	}
 };
-
-function ModuleTemplate(outputOptions) {
-	Template.call(this, outputOptions);
-}
-
-ModuleTemplate.prototype = Object.create(Template.prototype);
-
-ModuleTemplate.prototype.render = function(module, dependencyTemplates, chunk) {
-	var moduleSource = null;
-	if(!module.built) {
-		moduleSource = source.call(module, dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
-	} else {
-		moduleSource = module.source(dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
-	}
-	moduleSource = this.applyPluginsWaterfall("module", moduleSource, module, chunk, dependencyTemplates);
-	moduleSource = this.applyPluginsWaterfall("render", moduleSource, module, chunk, dependencyTemplates);
-	return this.applyPluginsWaterfall("package", moduleSource, module, chunk, dependencyTemplates);
-};
-
-ModuleTemplate.prototype.updateHash = function(hash) {
-	hash.update("1");
-	this.applyPlugins("hash", hash);
-};
-
-module.exports = ModuleTemplate;
