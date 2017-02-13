@@ -183,7 +183,7 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 			,"webpack/universalModuleDefinition"
 		);
 
-		var modulesPreloaderID = '__Beisen_Module_PreloadID_' + new Date().getTime() + '__';
+		var modulesPreloaderID = '__Optimized_Module_PreloadID_' + new Date().getTime() + '__';
 
 		var jsonpFunction = compilation.outputOptions.jsonpFunction || Template.toIdentifier("webpackJsonp" + (this.name || ""));
 		var chunkModulesSource = new ConcatSource();
