@@ -3,13 +3,13 @@ var ConcatSource = require("webpack-sources/lib/ConcatSource");
 var OriginalSource = require("webpack-sources").OriginalSource;
 var PrefixSource = require("webpack-sources").PrefixSource;
 
-function BeisenCompilerPlugin(options) {};
+function OptimizedCompilerPlugin(options) {};
 
-BeisenCompilerPlugin.prototype.generateModulesPreloaderID = function() {
-    return 'BeisenOptimizedModules' + (new Date()).getTime();
+OptimizedCompilerPlugin.prototype.generateModulesPreloaderID = function() {
+    return 'OptimizedModules' + (new Date()).getTime();
 }
 
-BeisenCompilerPlugin.prototype.apply = function(compiler) {
+OptimizedCompilerPlugin.prototype.apply = function(compiler) {
     var self = this;
 
     compiler.plugin("compile", function(params) {
@@ -19,10 +19,10 @@ BeisenCompilerPlugin.prototype.apply = function(compiler) {
             switch(this.options.output.libraryTarget) {
                 case 'umd':
                 case 'umd2':
-                    var CusUMDLibrary = require("./CustomUMDLibrary");
+                    var CustomUMDLibrary = require("./CustomUMDLibrary");
                     var output = compiler.options.output;
                     compilation.apply(
-                        new CusUMDLibrary(
+                        new CustomUMDLibrary(
                             output.library,
                             {
                                 optionalAmdExternalAsGlobal: output.libraryTarget === "umd2",
@@ -37,7 +37,7 @@ BeisenCompilerPlugin.prototype.apply = function(compiler) {
     })
 };
 
-module.exports = BeisenCompilerPlugin;
+module.exports = OptimizedCompilerPlugin;
 
 
 
