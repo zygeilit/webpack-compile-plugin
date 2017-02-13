@@ -38,12 +38,3 @@ OptimizedCompilerPlugin.prototype.apply = function(compiler) {
 };
 
 module.exports = OptimizedCompilerPlugin;
-
-
-
-
-
-
-
-
-
