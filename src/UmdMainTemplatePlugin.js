@@ -3,7 +3,8 @@ var ConcatSource = require("webpack-core/lib/ConcatSource");
 var OriginalSource = require("webpack-core/lib/OriginalSource");
 var PrefixSource = require("webpack-sources").PrefixSource;
 var Template = require("webpack/lib/Template");
-var CustomModuleTemplate = require('./CustomModuleTemplate');
+
+var CustomExternalModule = require('./ExternalModule');
 
 function accessorToObjectAccess(accessor) {
 	return accessor.map(function(a) {
@@ -20,19 +21,66 @@ function accessorAccess(base, accessor) {
 	}).join(", ");
 }
 
-function CustomUMDLibrary(name, options) {
+function UmdMainTemplatePlugin(name, options) {
 	this.name = name;
 	this.optionalAmdExternalAsGlobal = options.optionalAmdExternalAsGlobal;
 	this.namedDefine = options.namedDefine;
+}
+
+UmdMainTemplatePlugin.prototype.getMainTemplateSourece = function(opts) {
+	var mainTemplateSourece = new ConcatSource();
+
+	var mainTemplate = opts.mainTemplate;
+	var compilation = opts.compilation;
+	var id = opts.id;
+	var chunk = opts.chunk;
+	var hash = opts.hash;
+	var moduleTemplate = opts.moduleTemplate;
+	var dependencyTemplates = opts.dependencyTemplates;
+
+	if(chunk.entry) {
+
+		var buf = [];
+		buf.push(mainTemplate.applyPluginsWaterfall("bootstrap", "", chunk, hash, moduleTemplate, dependencyTemplates));
+		buf.push(mainTemplate.applyPluginsWaterfall("local-vars", "", chunk, hash));
+		buf.push("");
+		buf.push("// The require function");
+		buf.push("function " + mainTemplate.requireFn + "(moduleId) {");
+		buf.push(mainTemplate.indent(mainTemplate.applyPluginsWaterfall("require", "", chunk, hash)));
+
+		buf.push("}");
+		buf.push("");
+		buf.push(mainTemplate.asString(mainTemplate.applyPluginsWaterfall("require-extensions", "", chunk, hash)));
+		buf.push("");
+		buf.push(mainTemplate.asString(mainTemplate.applyPluginsWaterfall("startup", "", chunk, hash)));
+		var bootstrapSource = new OriginalSource(mainTemplate.prefix(buf, " \t") + "\n", "webpack/bootstrap " + hash);
+
+		// MainTemplate.render
+		mainTemplateSourece.add("/******/ (function(modules) { // webpackBootstrap\n");
+		mainTemplateSourece.add(new PrefixSource("/******/", bootstrapSource));
+		mainTemplateSourece.add("/******/ })\n");
+		mainTemplateSourece.add("/************************************************************************/\n");
+		mainTemplateSourece.add("/******/ (" + id + ");");
+	
+	} else {
+
+		var jsonpFunction = compilation.outputOptions.jsonpFunction || Template.toIdentifier("webpackJsonp" + (this.name || ""));
+		mainTemplateSourece.add(jsonpFunction + "(" + JSON.stringify(chunk.ids) + ",");
+		mainTemplateSourece.add(id + ");");
+	}
+
+	return mainTemplateSourece;
 }
 
 CustomUMDLibrary.prototype.apply = function(compilation) {
 
 	var mainTemplate = compilation.mainTemplate;
 
-	compilation.templatesPlugin("render-with-entry", function(source, chunk, hash) {
-		
-		if(chunk.entry) return source;
+	compilation.templatesPlugin("render-with-entry", function(source, chunk) {
+
+		var hash = compilation.hash;
+		var moduleTemplate = compilation.moduleTemplate;
+		var dependencyTemplates = compilation.dependencyTemplates;
 
 		var externals = chunk.modules.filter(function(m) {
 			return m.external;
@@ -120,14 +168,10 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 			var amdFactory = "factory";
 		}
 
-		var hash = compilation.hash;
-		var moduleTemplate = compilation.moduleTemplate;
-		var dependencyTemplates = compilation.dependencyTemplates;
-
 		// 自定义的模块解析函数
 		moduleTemplate.render = function(module, dependencyTemplates, chunk) {
 			if(!module.built) {
-				moduleSource = CustomModuleTemplate.call(module, dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
+				moduleSource = CustomExternalModule.render.call(module, dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
 			} else {
 				moduleSource = module.source(dependencyTemplates, this.outputOptions, this.requestShortener, chunk);
 			}
@@ -194,34 +238,15 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 
 		var modulesPreloaderID = '__Optimized_Module_PreloadID_' + new Date().getTime() + '__';
 
-		var jsonpFunction = compilation.outputOptions.jsonpFunction || Template.toIdentifier("webpackJsonp" + (this.name || ""));
-		var chunkModulesSource = new ConcatSource();
-		chunkModulesSource.add(jsonpFunction + "(" + JSON.stringify(chunk.ids) + ",");
-		chunkModulesSource.add(modulesPreloaderID);
-
-		// var buf = [];
-		// buf.push(mainTemplate.applyPluginsWaterfall("bootstrap", "", chunk, hash, moduleTemplate, dependencyTemplates));
-		// buf.push(mainTemplate.applyPluginsWaterfall("local-vars", "", chunk, hash));
-		// buf.push("");
-		// buf.push("// The require function");
-		// buf.push("function " + mainTemplate.requireFn + "(moduleId) {");
-		// buf.push(mainTemplate.indent(mainTemplate.applyPluginsWaterfall("require", "", chunk, hash)));
-
-		// buf.push("}");
-		// buf.push("");
-		// buf.push(mainTemplate.asString(mainTemplate.applyPluginsWaterfall("require-extensions", "", chunk, hash)));
-		// buf.push("");
-		// buf.push(mainTemplate.asString(mainTemplate.applyPluginsWaterfall("startup", "", chunk, hash)));
-		// var bootstrapSource = new OriginalSource(mainTemplate.prefix(buf, " \t") + "\n", "webpack/bootstrap " + hash);
-
-		// var modulesPreloaderID = '__Beisen_Module_PreloadID_' + new Date().getTime() + '__';
-
-		// var moduleWrapSource = new ConcatSource();
-		// moduleWrapSource.add("/******/ (function(modules) { // webpackBootstrap\n");
-		// moduleWrapSource.add(new PrefixSource("/******/", bootstrapSource));
-		// moduleWrapSource.add("/******/ })\n");
-		// moduleWrapSource.add("/************************************************************************/\n");
-		// moduleWrapSource.add("/******/ (" + modulesPreloaderID + ");");
+		var chunkModulesSource = this.getMainTemplateSourece({
+			id: modulesPreloaderID,
+			mainTemplate: mainTemplate,
+			compilation: compilation,
+			chunk: chunk,
+			hash: hash,
+			moduleTemplate: moduleTemplate,
+			dependencyTemplates: dependencyTemplates
+		});
 
 		var concatedSource = new ConcatSource(
 			"var " + modulesPreloaderID + " = ",
@@ -229,7 +254,7 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 			";\n\n\n",
 			umdWrapSource,
 			chunkModulesSource,
-			")\n});"
+			"\n})"
 		);
 
 		return concatedSource;
@@ -237,4 +262,4 @@ CustomUMDLibrary.prototype.apply = function(compilation) {
 
 };
 
-module.exports = CustomUMDLibrary;
+module.exports = UmdMainTemplatePlugin;

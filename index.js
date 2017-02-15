@@ -1,1 +1,1 @@
-module.exports = require('./OptimizedCompilePlugin');
+module.exports = require('./src/WebpackCompilePlugin');
